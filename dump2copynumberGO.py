@@ -1,3 +1,10 @@
+# after clustering connchifolia, plebeja and venusta at inflation value 3, get all sequences, blastx them against the A.thaliana protein database.
+
+# Get all Athaliana peptides with a match above 1e-60 and write the GO terms associated with these to a file, with copy number and Begonia members in the cluster.
+
+# After writing the script I added a filter to do this with Begonia sequences where all sequence lengths are above 200bp
+
+
 import subprocess
 
 
@@ -75,7 +82,7 @@ outfile = open('conpleven_copynumberGO', 'w')
 
 for i in dump:
 	fasta2blast = open('dump2cpGO_fasta', 'w')
-	out = open('dump_copynumerGO', 'w')
+	out = open('dump_copynumerGO_minlen200', 'w')
 	con_count = i.count('CON_')
 	ple_count = i.count('PLE_')
 	ven_count = i.count('VEN_')
@@ -93,28 +100,34 @@ for i in dump:
 			member = member.lstrip('VEN_')
 			fasta2blast.write('>VEN' + member + '\n' + Z[member.lstrip('VEN_')] + '\n')
 	fasta2blast.close()
-	#fasta2blast = open('dump2cpGO_fasta')
-	#fasta = fasta2blast.read()
-	#print(fasta)
-	#print('\n')
-	subprocess.call(["blastx -query dump2cpGO_fasta -db /Volumes/BACKUP/Bioinformatics/ncbi-blast-2.2.27+/db/TAIR10_pep_annotations -evalue 1e-60 -out dump_blast -outfmt '6 qseqid sseqid pident evalue'"], shell=True)
-		
-		
-	f = open('dump_blast')
-	blast = f.readlines()
-	at_GO_list = []
-	for i in blast:
-		at = i.split()[1]
-		at_GO_list.append(AT[at])
+	fasta2blast = open('dump2cpGO_fasta')
+	fasta = fasta2blast.readlines()
+	seqs = []
+	for i in fasta:
+		if not i.startswith('>'):
+			seqs.append(i)
+	if len(min(seqs)) > 200:
 	
-	outfile.write(str(con_count) + '\t' + str(ple_count) + '\t' + str(ven_count) + ' | ')
-	for i in (set(at_GO_list)):
-		outfile.write(i + '\t')
-	outfile.write('|' + '\t')
-	for member in members:
-		outfile.write(member + '\t') 
-	outfile.write('\n')	
+		subprocess.call(["blastx -query dump2cpGO_fasta -db /Volumes/BACKUP/Bioinformatics/ncbi-blast-2.2.27+/db/TAIR10_pep_annotations -evalue 1e-60 -out dump_blast -outfmt '6 qseqid sseqid pident evalue'"], shell=True)
+			
+			
+		f = open('dump_blast')
+		blast = f.readlines()
+		at_GO_list = []
+		for i in blast:
+			at = i.split()[1]
+			at_GO_list.append(AT[at])
 		
+		outfile.write(str(con_count) + '\t' + str(ple_count) + '\t' + str(ven_count) + ' | ')
+		for i in (set(at_GO_list)):
+			outfile.write(i + '\t')
+		outfile.write('|' + '\t')
+		for member in members:
+			outfile.write(member + '\t') 
+		outfile.write('\n')	
+		
+	else:	
+		print('not all sequences are long enough')
 			
 		
 			
