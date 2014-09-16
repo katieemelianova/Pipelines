@@ -26,81 +26,53 @@ for line in c:
 	X[C_name] = C_seq
 c.close()
 
+out = open('possible_fragments', 'w')
+
 
 # For each sequence in the cucumber dict, write it to a file in FASTA format
 for cucumber in X:
 	blast = open('con_cuc_blastfile', 'w')
 	blast.write('>' + cucumber + '\n' + X[cucumber])
 	# BLASTN the cucumber sequence against the B. conchifolia transcriptome at E value cutoff of 1e-30
-	subprocess.call(["blastn -query con_cuc_blastfile -db /Volumes/BACKUP/Bioinformatics/ncbi-blast-2.2.27+/db/CON_2.5_Isotigs.fasta -evalue 1e-30 -out con_cuc_blastoutfile -outfmt '6 qseqid sseqid qstart qend sstart send length pident evalue'"], shell=True)
-	
-	# open the output file of the BLASTN and check how many lines it has (how many BLAST hits)
-	with open('con_cuc_blastoutfile') as myfile:
-		count = sum(1 for line in myfile if line.rstrip('\n'))
-		myfile.close()
-	# if the cucumber sequence has hit more than one B. conchifolia sequence, continue with the script
-	if count > 1:
-		f = open('con_cuc_blastoutfile')
-		blastout = f.readlines()
-		# make an empty list to put all coordinates from all B. conchifolia hits
-		total_coords = []
+	subprocess.call(["blastn -query con_cuc_blastfile -db /Volumes/BACKUP/Bioinformatics/ncbi-blast-2.2.27+/db/CON_unique_fasta -evalue 1e-30 -out con_cuc_blastoutfile -outfmt '6 qseqid sseqid qstart qend sstart send length pident evalue'"], shell=True)
 
-		for i in blastout:
-			qstart = int(i.split()[2])	
-			qend = int(i.split()[3])
-			# turn the start and end coordinates of the hit on the cucumbers sequence into a list of numbers spanning the start and end of the hit e.g. qstart = 2 qend = 8 hit_coords = [2,3,4,5,6,7,8]
-			hit_coords = list(range(qstart,qend))
-			# append all the coordinates from all hits to one list
-			for i in hit_coords:
-				total_coords.append(i)
+	f = open('con_cuc_blastoutfile')
+	blastout = f.readlines()
+	# make an empty list to put all coordinates from all B. conchifolia hits
+	coords_lists = []
+	for i in blastout:
+		con = i.split()[1]
+		cuc  = i.split()[0]
+		qstart = int(i.split()[2])	
+		qend = int(i.split()[3])
+		# turn the start and end coordinates of the hit on the cucumbers sequence into a list of numbers spanning the start and end of the hit e.g. qstart = 2 qend = 8 hit_coords = [2,3,4,5,6,7,8]
+		# append all the coordinates from all hits to one list
+		coords_lists.append(list(range(qstart,qend)))
 
 
-		unique_list = []
+	unique_list = []
+	for i in blastout:
+		cuc = i.split()[0]
+		con = i.split()[1]
+		qstart = int(i.split()[2])	
+		qend = int(i.split()[3])
+		sstart = i.split()[4]
+		send = i.split()[5]
+		pident = i.split()[6]
+		evalue = i.split()[7]
 		
-		for i in blastout:
-			cuc = i.split()[0]
-			con = i.split()[1]
-			qstart = int(i.split()[2])	
-			qend = int(i.split()[3])
-			sstart = i.split()[4]
-			send = i.split()[5]
-			pident = i.split()[6]
-			evalue = i.split()[7]
-
-			unique = ('yes')
-
-			# for each of the individual hit coordinates, check in the big list whether they occur only once. If not, this is assumed that they overlap with another hit. This way they are labelled eithe unique = yes or unique = no
-
-			hit_coords = list(range(qstart,qend))
-			for i in hit_coords:
-				if total_coords.count(i) == 1:
-					continue
-				else:
-					unique = ('no')
-			# all unique/nonoverlapping hits are appended to a list and written to an output file
-			if unique == 'yes':
+		# set hit_coords variable as list of numbers spanning length of hit in this loop. For each hit coord stored in coords_lists, get transcripts which do not overlap with this one. Repeat for each hit in the blast outfile.
+		hit_coords = list(range(qstart,qend))
+		for i in coords_lists:
+			if not ((set(i)) & set(hit_coords)):
 				unique_list.append(con)
-		
-		if unique_list:
-			out = open('possible_fragments', 'a')
-			print(cucumber)
-			out.write(cucumber + '\t')
-			for i in unique_list:
-				out.write(i + '\t')
-			out.write('\n')
+			else:
+				continue
+	
+	# Get all unique hits ientified and write them to a file, unless there is only one hit in the file. This can happen because one transcript hits a cucumber sequence in two non-overlapping areas,. Also removes single sequence hits.
 
-			subprocess.call(["cat possible_fragments"], shell=True)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+	if len(set(unique_list)) > 1:
+		out.write(cuc + '\t')
+		for i in (set(unique_list)):
+			out.write(i + '\t')
+		out.write('\n')
