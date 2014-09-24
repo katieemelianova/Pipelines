@@ -20,7 +20,6 @@ def dictionary_seq(identifier, filename):
 		dictionary[identifier + C_name] = C_seq
 	return dictionary
 
-
 def mcl(file):
 	subprocess.call(["mcxload -abc " + file + " --stream-mirror --stream-neg-log10 -stream-tf 'ceil(200)' -o " + file.rstrip('.abc') + ".mci -write-tab " + file.rstrip('.abc') + ".tab"], shell=True)
 	
@@ -169,50 +168,56 @@ for cluster in dump:
 
 	subprocess.call(["/Volumes/BACKUP/Bioinformatics/standard-RAxML-master/raxmlHPC-PTHREADS-SSE3 -T 2 -m GTRCAT -p 12345 -s cluster.orfs.revtrans -n cluster.orf.raxml"], shell=True)
 
+	subprocess.call(["Rscript consensus.R"], shell=True)
+		
+	f = open('alignment_consensus')
+	consensus = f.readlines()
+	
+	consensus_bases = 0
+	total_bases = 0
+	
+	for i in consensus:
+		total_bases+=1
+		if i != 'NA':
+			if i != '-':
+				consensus_bases+=1
+	percent_consensus_bases = (float(consensus_bases*100)/float(total_bases))
+
+	subprocess.call(["cat cluster.orfs.revtrans"], shell=True)
 
 
 	subprocess.call(['codeml'], shell=True)
 
 	f = open('paml_out')
-	subprocess.call(['cat cluster.orfs.revtrans'], shell=True)
+
 
 	paml = f.read()
 
 	try:
-
-		x = paml.split('comparison.)\n\n')
-		q = (x[1])
-		
-		
-		q = re.sub(r'\([^)]*\)', '', x[1])
-		
-
-		q = q.replace('\n', ' ')
-		q = q.replace('  ', ' ')
-		q = q.replace('(', '')
-		q = q.replace(')', '')
-		
 		knks_list = []
+		kn_ks_list = []
+		output = paml.split('comparison.)\n\n')
+		output = (output[1])
+		output = output.split('TREE')
+		output = output[0]
+		knks = re.sub(r'\([^)]*\)', '', output)
+		for i in knks.split():
+			if not any(x in i for x in identifiers_list):
+				if i != '-1.0000':
+					knks_list.append(i)
 		
-		
-		q = q.split()
-		for i in q:	
-			if not i.startswith('CON'):
-				if not i.startswith('PLE'):
-					if not i.startswith('VEN'):
-						knks_list.append(float(i))
-
-		print(knks_list)
+		output = output.replace(')-', ') -')
+		kn_ks_list = []
+		for i in output.split():
+			if ')' in i or '(' in i:
+				kn_ks = i.lstrip('(')
+				kn_ks = kn_ks.rstrip(')')
+				if kn_ks != '-1.0000':
+					kn_ks_list.append(kn_ks)
 
 	except IndexError:
-		print('no paml result')
+			print('no paml result')
 
 
 	subprocess.call(['rm *cluster.orf.raxml*'], shell=True)
-
-
-
-
-
-
 
