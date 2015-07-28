@@ -98,14 +98,13 @@ def ungap(string):
 			fasta = fasta.replace('-', '')
 			fasta = fasta.replace('!', 'N')
 			fasta = fasta.replace('_R_', '')
-			print(fasta)
 			outfile.write(fasta)		 
 			f.close()
 			outfile.close()
 		
 def findOrthologs(d):
-	subprocess.call(["blastx -query " + d + " -db /Volumes/BACKUP/Bioinformatics/ncbi-blast-2.2.27+/db/TAIR10_pep_annotations -evalue 1e-50 -out " + d.rstrip('fastaMafft') + "BLASTX -outfmt '6 qseqid sseqid length pident evalue'"], shell=True)
-	f = open(d.rstrip('fastaMafft') + 'BLASTX')
+	subprocess.call(["blastx -query " + d + " -db /Volumes/BACKUP/Bioinformatics/ncbi-blast-2.2.27+/db/TAIR10_pep_annotations -evalue 1e-50 -out " + d.rstrip('fastaORF') + "BLASTX -outfmt '6 qseqid sseqid length pident evalue'"], shell=True)
+	f = open(d.rstrip('fastaORF') + 'BLASTX')
 	blast = f.readlines()
 	AThits = []
 	for i in blast:
@@ -119,10 +118,13 @@ def findOrthologs(d):
 				AThits.append(at)
 	AThits = set(AThits)
 
-	ATdict = fastaDict('/Volumes/BACKUP/Bioinformatics/ncbi-blast-2.2.27+/db/TAIR10_pep_annotations')
-	out = open(d.rstrip('fastaMafft') + 'ATorthologs' ,'w')
+	ATprotDict = fastaDict('/Volumes/BACKUP/Bioinformatics/ncbi-blast-2.2.27+/db/TAIR10_pep_annotations')
+	ATnuclDict = fastaDict('/Volumes/BACKUP/Bioinformatics/ncbi-blast-2.2.27+/db/TAIR10_cdna_annotations')
+	out = open(d.rstrip('fastaORF') + 'ATorthologs' ,'w')
+	nucOut = open(d.rstrip('fastaORF') + 'ATnuclOrthologs' ,'w')
 	for i in AThits:
-		out.write('>' + i + '\n' + ATdict[i] + '\n')
+		nucOut.write('>' + i + '\n' + ATnuclDict[i] + '\n')
+		out.write('>' + i + '\n' + ATprotDict[i] + '\n')
 
 def cleanup():
 	subprocess.call(["rm *ungappedORFMafft *ungappedORF *NT.fasta_ungapped"], shell=True)
@@ -143,18 +145,22 @@ def rc(seq):
 	return rc_seq
 
 
-
+def reorderAlignment(n, p):
+	nuclDict = fastaDict(n)
+	protDict = fastaDict(p)
+	protOutfile = open((p.rstrip('CorrectFrames.Aln') + '.protOrdered'), 'w')
+	nucOutfile = open((n.rstrip('Mafft') + 'nucOrdered'), 'w')
+	for i in protDict:
+		protOutfile.write('>' + i + '\n' + protDict[i] + '\n')
+		i = i.split('_rframe')[0]
+		nucOutfile.write('>' + i + '\n' + nuclDict[i] + '\n')
 
 def getReadingFrame(A, N):
 	f1 =open(A)
 	aln = f1.readlines()
-
-
 	subprocess.call(["clustalo --force -i " + A + " --distmat-out=" + A + ".dist --full"], shell=True)
-
 	f2 = open(A + ".dist")
 	distMat = f2.readlines()
-
 	#get all unique sequence names - number of hits to look for later
 	seqNames = []
 	for i in aln:
@@ -165,20 +171,15 @@ def getReadingFrame(A, N):
 	f1.close()
 	#make the alignment into a dict of name and sequence
 	alnDict = fastaDict(A)
-	
-
 	dists = {}
 	distList = []
-
 	for i in distMat:
 		item = i.split()
 		name = (item[0])
 		dist = (item[-1])
 		dists[dist] = (name)
 		distList.append(dist)
-
 	distList.sort()
-
 	nuclDict = fastaDict(N)
 	nucOutfile = open(N + 'RC', 'w')
 
@@ -186,17 +187,12 @@ def getReadingFrame(A, N):
 	for i in range(len(seqNames)):
 		b = dists[distList[i]]
 		if not b.startswith('AT'):
-			outfile.write('>' + b + '\n' + alnDict[b] + '\n')
-			if 'rframe-' in b:
-				bStrip = b.split('_rframe')[0]
-				nucOutfile.write('>' + bStrip + '\n' + rc((nuclDict[bStrip])) + '\n')
-			else:
-				bStrip = b.split('_rframe')[0]
-				nucOutfile.write('>' + bStrip + '\n' + nuclDict[bStrip] + '\n')
-				
+			outfile.write('>' + b + '\n' + alnDict[b] + '\n')				
 	outfile.close()
 
 	ungap(((A.rstrip('protATaln')) + 'CorrectFrames'))
+
+
 
 
 path = "./"
@@ -206,63 +202,64 @@ dirs = os.listdir(path)
 #	if 'WorkingSeqs' in i:
 #		subprocess.call(["java -jar /Volumes/BACKUP/Bioinformatics/macse_v1.01b.jar -prog alignSequences -seq " + i], shell=True)
 
-#ungap('NT')
+
+
+
+
+
+
+ungap('NT')
+dirs = os.listdir(path)
+for i in dirs:
+	if 'NT' in i:
+		dict = (fastaDict(i))
+		ORFdict = callORF(dict)
+		outfile = open(i + 'ORF','w')
+		for o in ORFdict:
+			outfile.write('>' + o + '\n' + ORFdict[o] + '\n')
+		outfile.close()
+dirs = os.listdir(path)
+for d in dirs:
+	if 'ORF' in d:
+		findOrthologs(d)
+dirs = os.listdir(path)
+for i in dirs:
+	if 'fastaORF' in i:
+		subprocess.call(["cat  " + i.rstrip('fastaORF') + "ATnuclOrthologs " + i + " > " + i.rstrip('fastaORF') + "AT"], shell=True)
+		subprocess.call(["mafft --adjustdirection --anysymbol " + i.rstrip('fastaORF') + "AT" + " > " + i.rstrip('fastaORF') + "Mafft"], shell=True)
+
 
 dirs = os.listdir(path)
+ungap('Mafft')
 
-#for i in dirs:
-#	if 'NT' in i:
-#		dict = (fastaDict(i))
-#		ORFdict = callORF(dict)
-#		outfile = open(i + 'ORF','w')
-#		for o in ORFdict:
-#			outfile.write('>' + o + '\n' + ORFdict[o] + '\n')
-#		outfile.close()
-
-dirs = os.listdir(path)
-#for i in dirs:
-#	if 'fastaORF' in i:
-#		subprocess.call(["mafft --adjustdirection --anysymbol " + i + " > " + i.rstrip('ORF') + "Mafft"], shell=True)
-
-#dirs = os.listdir(path)
-#ungap('Mafft')
-
-#dirs = os.listdir(path)
-#for d in dirs:
-#	if 'fastaMafft' in d:
-#		findOrthologs(d)
+for i in dirs:
+	if 'Mafft' in i:
+		dictz = fastaDict(i)
+		outfile = open(i, 'w')
+		for i in dictz:
+			if not i.startswith('AT'):
+				outfile.write('>' + i + '\n' + dictz[i] + '\n')
+		outfile.close()
 
 dirs = os.listdir(path)
 for i in dirs:
-	if 'fastaMafft' in i:
-		subprocess.call(["python dna2pep-1.1/dna2pep.py -a -r all --outformat fasta " + i + "  > " + (i.rstrip('fastaMafft')) + "prot"], shell=True)
+	if 'Mafft' in i:
+		subprocess.call(["python dna2pep-1.1/dna2pep.py -a -r all --outformat fasta " + i + "  > " + (i.rstrip('Mafft')) + "prot"], shell=True)
 		# NB always make sure that the AT ortholog is added at the END!!
 		subprocess.call(["cat " + (i.rstrip('fastaMafft')) + "prot " + (i.rstrip('fastaMafft')) + "ATorthologs > " + i.rstrip('fastaMafft') + "protAT"], shell=True)
-		subprocess.call(["mafft --anysymbol " + i.rstrip('fastaMafft') + "protAT > " + i.rstrip('fastaMafft') + "protATaln"], shell=True)
-		protFilename = (i.rstrip('fastaMafft') + "protATaln")
+		subprocess.call(["mafft --anysymbol " + i.rstrip('Mafft') + "protAT > " + i.rstrip('Mafft') + "protATaln"], shell=True)
+		protFilename = (i.rstrip('Mafft') + "protATaln")
 		getReadingFrame(protFilename, i)
-		filename = (i.rstrip('fastaMafft') + 'CorrectFrames')
-
-		'mafft --anysymbol' + filename + ' > ' + filename + '.Aln'
-		'perl /Volumes/BACKUP/Bioinformatics/pal2nal.v14/pal2nal.pl ' +  filename + '.Aln ' + i + 'RC > ' + i.rstrip('fastaMafftRC') + 'Revtrans' 
-
+		filename = (i.rstrip('Mafft') + 'CorrectFrames')
 		subprocess.call(['mafft --anysymbol ' + filename + ' > ' + filename + '.Aln'], shell=True)
-		subprocess.call(['perl /Volumes/BACKUP/Bioinformatics/pal2nal.v14/pal2nal.pl ' +  filename + '.Aln ' + i + 'RC > ' + i.rstrip('fastaMafftRC') + 'Revtrans' ], shell=True)
-
-
-#		subprocess.call(["python RevTrans-1.4/revtrans.py " + i + " " + i + ".Aln " + i + ".revtrans"], shell=True)
-
-
-
-#dirs = os.listdir(path)
-
-#for i in dirs:
+		reorderAlignment(i, (filename + '.Aln'))
+		protFile = (i.rstrip('Mafft') + 'protOrdered')
+		nucFile = (i.rstrip('Mafft') + 'nucOrdered')
 
 
 
-#dirs = os.listdir(path)
-#for i in dirs:
-#	if '_macse_NT.fasta_ungapped' in i:
-#		i = i.split('_macse')[0]
-#		subprocess.call(["python RevTrans-1.4/revtrans.py " + i + "_macse_NT.fasta_ungappedORF " + i + "_macse_NT.fasta_ungappedORFprotAln " + i + "ORFrevtrans"], shell=True)
-				
+		subprocess.call(['perl /Volumes/BACKUP/Bioinformatics/pal2nal.v14/pal2nal.pl ' +  protFile + ' ' + nucFile + ' > ' + i.rstrip('Mafft') + 'Pal2Nal' ], shell=True)
+
+
+# this now works with all cloned CHS. Next, you need to test how PAML/codeml responds to some non-overlapping sequences. For this, get 454 complete sequences and cut bits out. Run PAML on both complete and fragmented and see difference. Try this with a conserved and divergent gene family.
+
