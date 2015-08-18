@@ -46,15 +46,39 @@ def n50(name):
 	return(n50)
 
 
+def refBlast():
+	subprocess.call(["makeblastdb -in " + ref + " -dbtype prot"], shell=True)
+	subprocess.call(["blastx -query " + trans + " -db " + ref + " -out transcriptome2refBlastxE30MTS1 -evalue 1e-30 -max_target_seqs 1 -outfmt '6 qseqid sseqid evalue length pident'"], shell=True)
+	f = open('transcriptome2refBlastxE30MTS1')
+	blastx = f.readlines()
+	outblastfile = open('transcriptome2refBlastxE30MTS1_Filtered', 'w')
+	for i in blastx:
+		length = i.split()[3]
+		pident = i.split()[4]
+		if int(length) > 100:
+			if float(pident) > 50:
+				outblastfile.write(i)
+	f.close()
+	outblastfile.close()
 
+	f = open('transcriptome2refBlastxE30MTS1_Filtered')
+	lines = f.readlines()
+	refHitCount = 0
+	for i in lines:
+		refHitCount+=1
+	f.close()
+
+	return(refHitCount)
 
 
 
 
 PATH = input(' Give me the full path of the transcriptome you want stats for ')
 trans = (PATH)
+PATH2 = input('give me the full path of a reference you want to BLAST against ')
+ref = (PATH2)
 
-n50 = n50(trans)
+#n50 = n50(trans)
 
 f = open(trans)
 
@@ -81,6 +105,17 @@ morethan1kb = []
 all_lengths = []
 
 
+f = open(trans)
+lines = f.readlines()
+isogroups = []
+for i in lines:
+	if i.startswith('>'):
+		isogroup = i.split('gene=')[1]
+		isogroup = isogroup.split('  length')[0]
+		isogroups.append(isogroup)
+
+isogroupCount = len(set(isogroups))
+f.close()
 
 
 
@@ -97,15 +132,16 @@ lt200 = int(len(lessthan200) * 100)/len(X)
 lt1000 = int(len(lessthan1kb) * 100)/len(X)
 mt1000 = int(len(morethan1kb) * 100)/len(X)
 
-
+refHitCount = refBlast()
 
 
 print('\n')
 print('---------------------------------------------')
 print('\n')
 print('The total number of sequences is ' + str(len(all_lengths)) + '\n')
-print('The N50 of ' + trans + ' is ' + n50 + '\n')
-
+print('The number of sequences with a blastx hit to your ref @ e=1e-30 with 50% identity over > 100bp is ' + str(refHitCount) + '\n')
+#print('The N50 of ' + trans + ' is ' + n50 + '\n')
+print('The total number of isogroups is ' + str(isogroupCount) + '\n')
 print('The minumum sequece length is ' +  str(min(all_lengths)) + '\n')
 print('The maximum sequece length is ' +  str(max(all_lengths)) + '\n')
 print(str(lt200) + '% of sequences are less than 200bp long' + '\n')
