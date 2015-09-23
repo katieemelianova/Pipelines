@@ -202,6 +202,33 @@ def checkOrientation(nuc, prot):
 				protOut.write('>' + protName + '\n' + protSeq + '\n')
 
 
+def eliminateShortSeqs():
+	alnDict = fastaDict('myOrfsMafft')
+	outfile = open('myOrfsMafft', 'w')
+	for i in alnDict:
+		seq = alnDict[i]
+		seq = seq.replace('-', '')
+		if len(seq) > 300:
+			outfile.write('>' + i + '\n' + alnDict[i] + '\n')
+
+
+def countUngapped():
+	try:
+		alnDict = fastaDict('myOrfsPal2Nal')
+		listDict = list(alnDict.values())
+		seqLength = (len(listDict[0]))
+		unGappedColumns = 0
+		for i in range(seqLength):
+			columnContents = []
+			for s in alnDict:
+				columnContents.append(alnDict[s][i])
+			if '-' not in columnContents:
+				unGappedColumns+=1
+		return unGappedColumns
+	except IndexError:
+		print(alnDict)
+		print('just printed broken ungapping def')
+
 
 
 def prepareForPaml(count):
@@ -227,27 +254,35 @@ def prepareForPaml(count):
 			ungappedSeq = (mafftDict[i]).replace('-', '')
 			mafftOut.write('>' + i + '\n' + ungappedSeq + '\n')
 	mafftOut.close()
-	
-	
-	#print('CHECK ONE')
-	subprocess.call(["python dna2pep-1.1/dna2pep.py -a -r all --outformat fasta myOrfsMafft > myOrfsMafftProt"], shell=True)
-	#print('CHECK TWO')
-	subprocess.call(["cat myOrfsMafftProt myOrfsATorthologs > myOrfsmafftProtAT"], shell=True)
-	#print('CHECK THREE')
-	subprocess.call(["mafft --quiet --anysymbol myOrfsmafftProtAT > myOrfsmafftProtAT.aln"], shell=True)
-	#print('CHECK FOUR')
-	getReadingFrame('myOrfsmafftProtAT.aln', 'myOrfsMafft')
-	# AFTER THIS YOU CAN TAKE OUT THE AT ORTHOLOGS - MARK THEM FIRST TO BE REMOVED AFTER THIS
-	#print('CHECK FIVE')
-	
+	eliminateShortSeqs()
 
-	checkOrientation('myOrfsMafftcorrectFramesNucl','myOrfsmafftProtAT.alncorrectFrames')
-	#print('CHECK SIX')
-	subprocess.call(["mafft --anysymbol clusters2pal2nalAA > myOrfsmafftProtAT.alncorrectFrames.aln"], shell=True)
-	#print('CHECK SEVEN')
-	subprocess.call(["perl /Users/katieemelianova/Desktop/Software/pal2nal.v14/pal2nal.pl -output fasta myOrfsmafftProtAT.alncorrectFrames.aln clusters2pal2nalNT > myOrfsPal2Nal"], shell=True)
-	subprocess.call(["mv myOrfsPal2Nal myOrfsPal2Nal" + str(count)], shell=True)
-	
+	f = open('myOrfsMafft')
+	fasta = f.read()
+	seqCount = fasta.count('>')
+	if seqCount > 1:	
+		#print('CHECK ONE')
+		subprocess.call(["python dna2pep-1.1/dna2pep.py -a -r all --outformat fasta myOrfsMafft > myOrfsMafftProt"], shell=True)
+		#print('CHECK TWO')
+		subprocess.call(["cat myOrfsMafftProt myOrfsATorthologs > myOrfsmafftProtAT"], shell=True)
+		#print('CHECK THREE')
+		subprocess.call(["mafft --quiet --anysymbol myOrfsmafftProtAT > myOrfsmafftProtAT.aln"], shell=True)
+		#print('CHECK FOUR')
+		getReadingFrame('myOrfsmafftProtAT.aln', 'myOrfsMafft')
+		# AFTER THIS YOU CAN TAKE OUT THE AT ORTHOLOGS - MARK THEM FIRST TO BE REMOVED AFTER THIS
+		#print('CHECK FIVE')
+		
+
+		checkOrientation('myOrfsMafftcorrectFramesNucl','myOrfsmafftProtAT.alncorrectFrames')
+		#print('CHECK SIX')
+		subprocess.call(["mafft --anysymbol clusters2pal2nalAA > myOrfsmafftProtAT.alncorrectFrames.aln"], shell=True)
+		#print('CHECK SEVEN')
+		subprocess.call(["perl /Users/katieemelianova/Desktop/Software/pal2nal.v14/pal2nal.pl -nogap -output fasta myOrfsmafftProtAT.alncorrectFrames.aln clusters2pal2nalNT > myOrfsPal2Nal"], shell=True)
+		ungappedCols = countUngapped()
+		if ungappedCols > 200:
+			subprocess.call(["mv myOrfsPal2Nal myOrfsPal2Nal" + str(count)], shell=True)
+		else:
+			subprocess.call(["rm myOrfsPal2Nal"], shell=True)
+		
 ################ end of translational alignment step
 
 
