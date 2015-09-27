@@ -66,29 +66,30 @@ def callORF(L):
 
 def findOrthologs(d):
 	# blasts against a TAIR database that you must have in a db somewhere (i.e. change paths as necessary)
-	subprocess.call(["blastx -query " + d + " -db /Users/katieemelianova/Desktop/Software/ncbi-blast-2.2.30+/db/TAIR10_pep_20101214_updated.txt -evalue 1e-50 -out " + d + "BLASTX -outfmt '6 qseqid sseqid length pident evalue'"], shell=True)
+	subprocess.call(["blastx -query " + d + " -db /Users/katieemelianova/Desktop/Software/ncbi-blast-2.2.30+/db/TAIR10_pep_20101214_updated.txt -max_target_seqs 1 -evalue 1e-40 -out " + d + "BLASTX -outfmt '6 qseqid sseqid length pident evalue'"], shell=True)
 	f = open(d + 'BLASTX')
-	blast = f.readlines()
-	AThits = []
-	for i in blast:
-		beg = i.split()[0]
-		at = i.split()[1]
-		length = i.split()[2]
-		pident = i.split()[3]
-		evalue = i.split()[4]
-		if int(length) > 250:
-			if float(pident) > 50:
-				AThits.append(at)
-	AThits = set(AThits)
+	topBlast = f.readlines()
+	if topBlast:
+		AThits = []
+		for i in topBlast:
+			beg = i.split()[0]
+			at = i.split()[1]
+			length = i.split()[2]
+			pident = i.split()[3]
+			evalue = i.split()[4]
+			if int(length) > 200:
+				if float(pident) > 40:
+					AThits.append(at)
+		AThits = set(AThits)
 
 
-	ATprotDict = fastaDict('/Users/katieemelianova/Desktop/Software/ncbi-blast-2.2.30+/db/TAIR10_pep_20101214_updated.txt')
-	ATnuclDict = fastaDict('/Users/katieemelianova/Desktop/Software/ncbi-blast-2.2.30+/db/TAIR10_seq_20101214_updated.txt')
-	out = open(d.rstrip('ORF') + 'ATorthologs' ,'w')
-	nucOut = open(d.rstrip('ORF') + 'ATnuclOrthologs' ,'w')
-	for i in AThits:
-		nucOut.write('>' + i + 'OUTGROUP' + '\n' + ATnuclDict[i] + '\n')
-		out.write('>' + i + 'OUTGROUP' + '\n' + ATprotDict[i] + '\n')
+		ATprotDict = fastaDict('/Users/katieemelianova/Desktop/Software/ncbi-blast-2.2.30+/db/TAIR10_pep_20101214_updated.txt')
+		ATnuclDict = fastaDict('/Users/katieemelianova/Desktop/Software/ncbi-blast-2.2.30+/db/TAIR10_seq_20101214_updated.txt')
+		out = open(d + 'ATorthologs' ,'w')
+		nucOut = open(d + 'ATnuclOrthologs' ,'w')
+		for i in AThits:
+			nucOut.write('>' + i + 'OUTGROUP' + '\n' + ATnuclDict[i] + '\n')
+			out.write('>' + i + 'OUTGROUP' + '\n' + ATprotDict[i] + '\n')
 
 def rc(seq): 
 	# Reverse complements a sequence
@@ -231,6 +232,9 @@ def countUngapped():
 
 
 
+	
+
+
 def prepareForPaml(count):
 	dictz = (fastaDict('cluster.fasta'))
 	ORFdict = callORF(dictz)
@@ -239,11 +243,7 @@ def prepareForPaml(count):
 		outfile.write('>' + o + '\n' + ORFdict[o] + '\n')
 	outfile.close()
 
-	findOrthologs('myOrfs')
-
-	subprocess.call(["cat myOrfsATnuclOrthologs myOrfs > myOrfsAt"], shell=True)
-	#56$%^&*()(*&^%$£$%^&*(*&^%$£))
-	# SHOULD I SWITCH ROUND THE BLASTX FIND ORTHOLOGS AND THE FIND ORFS? WOULD BE MORE EFFECTIVE AT FINDING ORTHOLOGS THIS WAY
+	subprocess.call(["cat cluster.fastaATnuclOrthologs myOrfs > myOrfsAt"], shell=True)
 	
 	subprocess.call(["mafft --quiet --adjustdirection myOrfsAt > myOrfsAtMafft"], shell=True)
 	mafftDict = fastaDict('myOrfsAtMafft')
@@ -259,29 +259,26 @@ def prepareForPaml(count):
 	f = open('myOrfsMafft')
 	fasta = f.read()
 	seqCount = fasta.count('>')
-	if seqCount > 1:	
-		#print('CHECK ONE')
-		subprocess.call(["python dna2pep-1.1/dna2pep.py -a -r all --outformat fasta myOrfsMafft > myOrfsMafftProt"], shell=True)
-		#print('CHECK TWO')
-		subprocess.call(["cat myOrfsMafftProt myOrfsATorthologs > myOrfsmafftProtAT"], shell=True)
-		#print('CHECK THREE')
-		subprocess.call(["mafft --quiet --anysymbol myOrfsmafftProtAT > myOrfsmafftProtAT.aln"], shell=True)
-		#print('CHECK FOUR')
-		getReadingFrame('myOrfsmafftProtAT.aln', 'myOrfsMafft')
-		# AFTER THIS YOU CAN TAKE OUT THE AT ORTHOLOGS - MARK THEM FIRST TO BE REMOVED AFTER THIS
-		#print('CHECK FIVE')
-		
 
+	if seqCount > 1:	
+		subprocess.call(["python dna2pep-1.1/dna2pep.py -a -r all --outformat fasta myOrfsMafft > myOrfsMafftProt"], shell=True)
+		subprocess.call(["cat myOrfsMafftProt cluster.fastaATorthologs > myOrfsmafftProtAT"], shell=True)
+		subprocess.call(["mafft --quiet --anysymbol myOrfsmafftProtAT > myOrfsmafftProtAT.aln"], shell=True)
+		getReadingFrame('myOrfsmafftProtAT.aln', 'myOrfsMafft')
 		checkOrientation('myOrfsMafftcorrectFramesNucl','myOrfsmafftProtAT.alncorrectFrames')
-		#print('CHECK SIX')
 		subprocess.call(["mafft --anysymbol clusters2pal2nalAA > myOrfsmafftProtAT.alncorrectFrames.aln"], shell=True)
-		#print('CHECK SEVEN')
 		subprocess.call(["perl /Users/katieemelianova/Desktop/Software/pal2nal.v14/pal2nal.pl -nogap -output fasta myOrfsmafftProtAT.alncorrectFrames.aln clusters2pal2nalNT > myOrfsPal2Nal"], shell=True)
 		ungappedCols = countUngapped()
+		# dont necessarily need the unGappedColumns function now that pal2nal -nogap flag removes gaps anyway, but effectively the same result and will keep around for other potential uses
 		if ungappedCols > 200:
-			subprocess.call(["mv myOrfsPal2Nal myOrfsPal2Nal" + str(count)], shell=True)
-		else:
-			subprocess.call(["rm myOrfsPal2Nal"], shell=True)
+			if seqCount > 3:
+				subprocess.call(["~/Desktop/Software/raxmlHPC-AVX-v8/raxml -p 100 -s myOrfsPal2Nal -n myOrfsPal2Naltree -m PROTCATWAG -T 2"], shell=True)
+				subprocess.call(["codeml codeml_oneW.ctl"], shell=True)
+				subprocess.call(["rm RAxML_*"], shell=True)
+		
+				
+				
+
 		
 ################ end of translational alignment step
 
@@ -298,16 +295,11 @@ def prepareForPaml(count):
 
 
 
-def blastn(file):
+def blastn():
 	# makes a BLAST directory and uses discontinuous megablast to BLAST concatenated file of all species against itself [NEEDS TO BE GENERALIZED]
-	subprocess.call(["makeblastdb -in alltranscriptomes2blastn -dbtype nucl"], shell=True)
-	subprocess.call(["blastn -num_threads 4 -task dc-megablast -query alltranscriptomes2blastn -db alltranscriptomes2blastn -out alltranscriptomes.blastnout -evalue 1e-40 -outfmt '6 qseqid sseqid length pident evalue'"], shell=True)
+	subprocess.call(["makeblastdb -in alltranscriptomes2blast -dbtype nucl"], shell=True)
+	subprocess.call(["blastn -num_threads 4 -task dc-megablast -query alltranscriptomes2blast -db alltranscriptomes2blast -out alltranscriptomes.blastout -evalue 1e-40 -outfmt '6 qseqid sseqid length pident evalue'"], shell=True)
 
-def blastx(nuc, prot):
-	# makes a BLAST directory and uses discontinuous megablast to BLAST concatenated file of all species against itself [NEEDS TO BE GENERALIZED]
-	subprocess.call(["makeblastdb -in alltranscriptomes2blastx -dbtype prot"], shell=True)
-	subprocess.call(["blastx -num_threads 4 -query alltranscriptomes2blastn -db alltranscriptomes2blastx -out alltranscriptomes.blastxout -evalue 1e-40 -outfmt '6 qseqid sseqid length pident evalue'"], shell=True)
-	subprocess.call(["rm alltranscriptomes2blast*"], shell=True)
 
 def fastaDict(i):
 	f = open(i)
@@ -453,35 +445,22 @@ def prepareDBs():
 
 
 	# write contents of dict of dicts to a multifasta file, filtering by sequence length
-	all_transN = open('alltranscriptomes2blastn', 'w')
+	all_trans = open('alltranscriptomes2blast', 'w')
 	for i in identifiers_list:
-		if '_N' in i:
-			for x in (dictionary_seq_dictionaries[i]):
-				if int(len((dictionary_seq_dictionaries[i])[x])) > 100:
-					all_transN.write('>' + x + '\n' + (dictionary_seq_dictionaries[i])[x] + '\n')
+		for x in (dictionary_seq_dictionaries[i]):
+			if int(len((dictionary_seq_dictionaries[i])[x])) > 100:
+				all_trans.write('>' + x + '\n' + (dictionary_seq_dictionaries[i])[x] + '\n')
 
 	# write contents of dict of dicts to a multifasta file, filtering by sequence length
 
-
-	all_transP = open('alltranscriptomes2blastx', 'w')
-	for i in identifiers_list:
-		if '_P' in i:
-			for x in (dictionary_seq_dictionaries[i]):
-				if int(len((dictionary_seq_dictionaries[i])[x])) > 100:
-					all_transP.write('>' + x + '\n' + (dictionary_seq_dictionaries[i])[x] + '\n')
 	return (set_identifiers_list, dictionary_seq_dictionaries)
 
 
-
-def blastSearch():
-	blastn('alltranscriptomes2blastn')
-	blastx('alltranscriptomes2blastn', 'alltranscriptomes2blastx')
-	subprocess.call(["cat alltranscriptomes.blastxout alltranscriptomes.blastnout > alltranscriptomes.blastout"], shell=True)
 				
 				
 def Cluster():
 	hitLists = []
-	f = open('alltranscriptomes.blastnout')
+	f = open('alltranscriptomes.blastout')
 	blast = f.readlines()
 	for i in blast:
 		q = i.split()[0]
@@ -513,82 +492,107 @@ def Cluster():
 def test():
 	counter = 0
 	f = open('clusters_L150P60')
-	outfile = open('clusterTestOutFile', 'w')
+	outfile = open('clusterOutFile', 'w')
+	pamlOutfile = open('listOfPamlResults', 'w')
 	clusters = f.readlines()
 	for cluster in clusters:
+		outfile.write('// \n\n')
 		counter+=1
 		# define dicts and lists to store cluster specific values to, and open file to write sequences of cluster to a FASTA file
 		copyDict = {}
 		seq_count = []
 		seq_list = []
 		file = open('cluster.fasta', 'w')
-		
-		# Count taxon specific copy numbers and store counts in a list
+
+		outfile.write('Copy Numbers: ')
+		#Count taxon specific copy numbers and store counts in a list
 		for x in set_identifiers_list:
 			count = cluster.count(x)
 			copyDict[x] = count
 			seq_count.append(count)
-			#print(seq_count)
+			outfile.write(str(count) + '\t')
+		outfile.write('\n')
+
+
+		###
 		if sum(seq_count) > 1:
+		###
+			outfile.write('Sequence Names: ')
 			# Store all sequence names in a list to be referred to later
 			seq = cluster.split('\t')
 			for i in seq:
 				seq_list.append(i)
-			# write cluster sequences to FASTA file
+				outfile.write(i + '\t')
+			outfile.write('\n')
+			#write cluster sequences to FASTA file
+			outfile.write('Start Sequence Fasta \n')
 			for i in identifiers_list:
 				if '_N' in i:
 					for x in seq:
 						if x.startswith(i.rstrip('_N')):
 							file.write('>' + x + '\n' + (dictionary_seq_dictionaries[i])[x] + '\n')
+							outfile.write('>' + x + '\n' + (dictionary_seq_dictionaries[i])[x] + '\n')
+			outfile.write('End Sequence Fasta \n\n')
 		file.close()
-		prepareForPaml(counter)
-		# I THINK I SHOULD PUT THE 'IF THERES AN AT IN THE CLUTSR' BEFORE CALLING PREPARE FOR PAML?
-		#**************************&&^^&*(*&*(*&*(*&&&*(*&*(*&*())))))
-		file.close()
-
-		# write copy numbers and sequence names to file (only if there is an Athaliana ortholog associated with the family)
-		if any(item.startswith('AT') for item in seq_list):
-			copyNumbers = []
-			clust = cluster.split('\t')
-			for i in copyDict:
-				copy = str(copyDict[i])
-				copyNumbers.append(copy)
-			copies = copyNumbers + clust
-			copies = '\t'.join(copies)
-			outfile.write(copies)
+			
 
 
-# create a dict to hold all the dicts for all species
-dictionary_seq_dictionaries={}
-# Create an empty list to hold all species identifiers to refer to later
-identifiers_list=[]
-set_identifiers_list = []
-
-f = open('pipeline_control')
-testfile = f.readlines()
-# Read in contents of control file, creating a dict for each species, and adding these dicts to another dict
-for i in testfile:
-	identifier=i.split()[0]
-	identifier = identifier.upper()
-	identifiers_list.append(identifier)
-	set_identifiers_list.append(identifier)
-	#identifier = identifier.split('_')[0]
-	path=i.split()[1]	
-	filename = open(path)
-	dictionary_seq_dictionaries['{0}'.format(identifier)]=dictionary_seq(identifier, filename)
-	filename.close()
-
-set_identifiers_list = [x.split('_')[0] for x in set_identifiers_list]
-set_identifiers_list = list(set(set_identifiers_list))
 
 
-# write contents of dict of dicts to a multifasta file, filtering by sequence length
-all_transN = open('alltranscriptomes2blastn', 'w')
-for i in identifiers_list:
-	if '_N' in i:
-		for x in (dictionary_seq_dictionaries[i]):
-			if int(len((dictionary_seq_dictionaries[i])[x])) > 300:
-				all_transN.write('>' + x + '\n' + (dictionary_seq_dictionaries[i])[x] + '\n')
+		findOrthologs('cluster.fasta')
+		f = open('cluster.fastaATorthologs')
+		orthologs = f.readlines()
+		if orthologs:
+			f = open('ATH_GO_GOSLIM.txt')
+			GO = {}
+			goFile = f.readlines()
+			for i in goFile:
+				AT = i.split('\t')[0]
+				ATGO = i.split('\t')[4]
+				ATGO = ATGO.lstrip()
+				ATGO = ATGO.rstrip()
+				GO[AT] = ATGO
+			print(GO)
+
+			atOrthologList = []
+			outfile.write('Athaliana Orthologs: ')
+			for i in orthologs:
+				if i.startswith('>'):
+					atOrtholog = i.split('.')[0]
+					atOrtholog = atOrtholog.lstrip('>')
+					atOrtholog = atOrtholog.rstrip()
+					atOrthologList.append(atOrtholog)
+					outfile.write(str(atOrtholog) + '\t')
+			outfile.write('\n')
+			outfile.write('GO terms: ')
+			for a in atOrthologList:
+				outfile.write(GO[a] + '\t')
+			outfile.write('\n')
+
+
+
+			prepareForPaml(counter)
+			try:
+				f = open('myOrfsPal2NalpamlOut')
+				lines = f.readlines()
+				dNdS = ''
+				for i in lines:
+					if i.startswith('omega (dN/dS) = '):
+						dNdS = i.split(' = ')[1]
+						dNdS = dNdS.lstrip()
+						pamlOutfile.write(dNdS)
+				outfile.write('dN/dS: ' + str(dNdS) + '\n')
+				f.close()
+				subprocess.call(["rm myOrfsPal2NalpamlOut"], shell=True)
+			except FileNotFoundError:
+				continue
+
+			
+	outfile.write('\n')
+		#file.close()
+		
+	pamlOutfile.close()
+
 
 
 
@@ -601,14 +605,11 @@ for i in identifiers_list:
 
 
 #prepareDBs()
-#blastSearch()
-#Cluster()
+#blastn()
+Cluster()
 
-test()
+#test()
 
-
-
-#Tuesday evening - changed the nuc seq checking frame def to work, now have switched everything into this script - doesnt seem to be working but going home now - RUN and TEST toorrow
 
 
 
