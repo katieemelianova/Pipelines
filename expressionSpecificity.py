@@ -293,21 +293,14 @@ def exp(clust):
 	else:
 		PLEvbMeanExpression = 'NA'
 
-	print('CONpresenceAbsence' + '\t' + str(len(CONff)) + '\t' + str(len(CONleaf)) + '\t' + str(len(CONmf)) + '\t' + str(len(CONpet)) + '\t' + str(len(CONroot)) + '\t' + str(len(CONvb)))
-	print('CONMeanExpression' + '\t' + str(CONffMeanExpression) + '\t' + str(CONleafMeanExpression) + '\t' + str(CONmfMeanExpression) + '\t' + str(CONpetMeanExpression) + '\t' + str(CONrootMeanExpression) + '\t' + str(CONvbMeanExpression))
-	print('PLEpresenceAbsence' + '\t' + str(len(PLEff)) + '\t' + str(len(PLEleaf)) + '\t' + str(len(PLEmf)) + '\t' + str(len(PLEpet)) + '\t' + str(len(PLEroot)) + '\t' + str(len(PLEvb)))
-	print('PLEMeanExpression' + '\t' + str(PLEffMeanExpression) + '\t' + str(PLEleafMeanExpression) + '\t' + str(PLEmfMeanExpression) + '\t' + str(PLEpetMeanExpression) + '\t' + str(PLErootMeanExpression) + '\t' + str(PLEvbMeanExpression))
-	print('cluster on percentages:')
-	print(CONclusterOnPercentages)
-	print(PLEclusterOnPercentages)
-	for i in CONperCopyExpression:
-		print(i)
+	CONpresenceAbsence = ('CONpresenceAbsence' + '\t' + str(len(CONff)) + '\t' + str(len(CONleaf)) + '\t' + str(len(CONmf)) + '\t' + str(len(CONpet)) + '\t' + str(len(CONroot)) + '\t' + str(len(CONvb)))
+	CONmeanExpression = ('CONMeanExpression' + '\t' + str(CONffMeanExpression) + '\t' + str(CONleafMeanExpression) + '\t' + str(CONmfMeanExpression) + '\t' + str(CONpetMeanExpression) + '\t' + str(CONrootMeanExpression) + '\t' + str(CONvbMeanExpression))
+	PLEpresenceAbsence = ('PLEpresenceAbsence' + '\t' + str(len(PLEff)) + '\t' + str(len(PLEleaf)) + '\t' + str(len(PLEmf)) + '\t' + str(len(PLEpet)) + '\t' + str(len(PLEroot)) + '\t' + str(len(PLEvb)))
+	PLEmeanExpression = ('PLEMeanExpression' + '\t' + str(PLEffMeanExpression) + '\t' + str(PLEleafMeanExpression) + '\t' + str(PLEmfMeanExpression) + '\t' + str(PLEpetMeanExpression) + '\t' + str(PLErootMeanExpression) + '\t' + str(PLEvbMeanExpression))
+
+	return CONpresenceAbsence, CONmeanExpression, PLEpresenceAbsence, PLEmeanExpression, CONclusterOnPercentages, PLEclusterOnPercentages, CONperCopyExpression, PLEperCopyExpression
 
 
-	print('\n')
-	print('\n')
-	print('\n')
-	#print('\n')
 
 CONtpmDict = {}
 c = open('CONmeanTPMs')
@@ -336,7 +329,9 @@ for j in p:
 f = open('clusters')
 clusts = f.readlines()
 for clust in clusts:
-	exp(clust)
+	CONpa, CONme, PLEpa, PLEme, CONclustOnPercent, PLEclustOnPercent, CONpce, PLEpce = exp(clust)
+
+	
 	
 
 
