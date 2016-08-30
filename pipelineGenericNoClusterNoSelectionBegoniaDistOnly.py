@@ -1,10 +1,3 @@
-# New pipeline without clustering and using OrthoFinder Clusters
-# Clustered 4 species and have used the Fasta Header names to input into the pipeline_control file. e.g. Athaliana fasta headers are like 'AT1G55380.1' so AT is the identifier for Athaliana.
-# I used protein sequences to cluster but will use transcript sequences for alignments etc.
-# N/B. make sure there are no additional carriage returns or newlines in the pipeline_control file
-
-
-
 import subprocess
 
 
